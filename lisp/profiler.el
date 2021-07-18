@@ -831,12 +831,15 @@ If MODE is `mem' or `cpu+mem', start profiler that samples CPU
   (interactive
    (list (if (not (fboundp 'profiler-cpu-start)) 'mem
            (intern (completing-read (format-prompt "Mode" "cpu")
-                                    '("cpu" "mem" "cpu+mem")
+                                    '("cpu" "cpu-input-pending" "mem" "cpu+mem")
                                     nil t nil nil "cpu")))))
   (cl-ecase mode
     (cpu
      (profiler-cpu-start profiler-sampling-interval)
      (message "CPU profiler started"))
+    (cpu-input-pending
+     (profiler-cpu-start profiler-sampling-interval t)
+     (message "CPU profiler (input pending only) started"))
     (mem
      (profiler-memory-start)
      (message "Memory profiler started"))

@@ -18,6 +18,7 @@ You should have received a copy of the GNU General Public License
 along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <config.h>
+#include "keyboard.h"
 #include "lisp.h"
 #include "syssignal.h"
 #include "systime.h"
@@ -230,11 +231,16 @@ static EMACS_INT cpu_gc_count;
 /* The current sampling interval in nanoseconds.  */
 static EMACS_INT current_sampling_interval;
 
+static bool profiler_input_pending_only;
+
 /* Signal handler for sampling profiler.  */
 
 static void
 handle_profiler_signal (int signal)
 {
+  if (profiler_input_pending_only && !input_pending) {
+    return;
+  }
   if (EQ (backtrace_top_function (), QAutomatic_GC))
     /* Special case the time-count inside GC because the hash-table
        code is not prepared to be used while the GC is running.
@@ -334,14 +340,18 @@ setup_cpu_timer (Lisp_Object sampling_interval)
 }
 
 DEFUN ("profiler-cpu-start", Fprofiler_cpu_start, Sprofiler_cpu_start,
-       1, 1, 0,
+       1, 2, 0,
        doc: /* Start or restart the cpu profiler.
 It takes call-stack samples each SAMPLING-INTERVAL nanoseconds, approximately.
+If ONLY-INPUT-PENDING is non-nil, only profile samples when there's input pending.
 See also `profiler-log-size' and `profiler-max-stack-depth'.  */)
-  (Lisp_Object sampling_interval)
+  (Lisp_Object sampling_interval, Lisp_Object only_input_pending)
 {
   if (profiler_cpu_running)
     error ("CPU profiler is already running");
+
+  if (!NILP(only_input_pending))
+    profiler_input_pending_only = true;
 
   if (NILP (cpu_log))
     {
@@ -397,6 +407,7 @@ Return non-nil if the profiler was running.  */)
 
   signal (SIGPROF, SIG_IGN);
   profiler_cpu_running = NOT_RUNNING;
+  profiler_input_pending_only = false;
   return Qt;
 }
 
