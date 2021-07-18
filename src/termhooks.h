@@ -728,6 +728,8 @@ struct terminal
   int (*read_socket_hook) (struct terminal *terminal,
                            struct input_event *hold_quit);
 
+  bool (*read_socket_available_hook) (struct terminal *terminal);
+
   /* Called when a frame's display becomes entirely up to date.  */
   void (*frame_up_to_date_hook) (struct frame *);
 

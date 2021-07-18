@@ -238,7 +238,7 @@ static bool profiler_input_pending_only;
 static void
 handle_profiler_signal (int signal)
 {
-  if (profiler_input_pending_only && !input_pending) {
+  if (profiler_input_pending_only && !read_socket_available()) {
     return;
   }
   if (EQ (backtrace_top_function (), QAutomatic_GC))

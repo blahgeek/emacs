@@ -432,9 +432,10 @@ extern int parse_solitary_modifier (Lisp_Object symbol);
 extern Lisp_Object real_this_command;
 
 extern int quit_char;
-extern bool input_pending;
 extern bool input_was_pending;
 extern unsigned int timers_run;
+
+extern bool read_socket_available(void);
 
 extern bool menu_separator_name_p (const char *);
 extern bool parse_menu_item (Lisp_Object, int);

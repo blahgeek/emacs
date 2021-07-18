@@ -9544,6 +9544,14 @@ XTread_socket (struct terminal *terminal, struct input_event *hold_quit)
   return count;
 }
 
+static bool XTread_socket_available (struct terminal * terminal) {
+  struct x_display_info *dpyinfo = terminal->display_info.x;
+#ifndef USE_GTK
+  return XPending(dpyinfo->display);
+#else /* USE_GTK */
+  return gtk_events_pending();
+#endif
+}
 
 
 
@@ -13520,6 +13528,7 @@ x_create_terminal (struct x_display_info *dpyinfo)
   terminal->update_begin_hook = x_update_begin;
   terminal->update_end_hook = x_update_end;
   terminal->read_socket_hook = XTread_socket;
+  terminal->read_socket_available_hook = XTread_socket_available;
   terminal->frame_up_to_date_hook = XTframe_up_to_date;
   terminal->buffer_flipping_unblocked_hook = XTbuffer_flipping_unblocked_hook;
   terminal->defined_color_hook = x_defined_color;

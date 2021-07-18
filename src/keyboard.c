@@ -6847,6 +6847,22 @@ get_input_pending (int flags)
   return input_pending;
 }
 
+bool read_socket_available(void) {
+  struct terminal *t;
+
+  t = terminal_list;
+  while (t) {
+    struct terminal *next = t->next_terminal;
+    if (t->read_socket_available_hook) {
+      if (t->read_socket_available_hook(t)) {
+	return true;
+      }
+    }
+    t = next;
+  }
+  return false;
+}
+
 /* Read any terminal input already buffered up by the system
    into the kbd_buffer, but do not wait.
 
