@@ -2400,9 +2400,9 @@ static void maybe_trace_function() {
   }
   struct timespec end_time = current_timespec();
   struct timespec start_time = specpdl_ptr->bt.start_time;
-  double start_time_ts = start_time.tv_sec * 1000 + (double)start_time.tv_nsec / 1000000.0;
-  double end_time_ts = end_time.tv_sec * 1000 + (double)end_time.tv_nsec / 1000000.0;
-  if (end_time_ts - start_time_ts < (double)trace_event_min_interval_us / 1000.0) {
+  long long start_time_ts = start_time.tv_sec * 1000000LL + start_time.tv_nsec / 1000LL;
+  long long end_time_ts = end_time.tv_sec * 1000000LL + end_time.tv_nsec / 1000LL;
+  if (end_time_ts - start_time_ts < trace_event_min_interval_us) {
     return;
   }
 
@@ -2420,7 +2420,7 @@ static void maybe_trace_function() {
     }
   }
 
-  fprintf(trace_event_output, "{\"name\":\"%s\",\"ph\":\"X\",\"ts\":%f,\"dur\":%f,\"pid\":0,\"tid\":0},\n",
+  fprintf(trace_event_output, "{\"name\":\"%s\",\"ph\":\"X\",\"ts\":%lld,\"dur\":%lld,\"pid\":0,\"tid\":0},\n",
 	  name_str, start_time_ts, end_time_ts - start_time_ts);
 }
 
