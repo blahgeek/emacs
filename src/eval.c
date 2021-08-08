@@ -2395,14 +2395,14 @@ grow_specpdl (void)
 static FILE* trace_event_output = NULL;
 
 static void maybe_trace_function() {
-  if (trace_event_min_interval_ms == 0) {
+  if (trace_event_min_interval_us == 0) {
     return;
   }
   struct timespec end_time = current_timespec();
   struct timespec start_time = specpdl_ptr->bt.start_time;
   double start_time_ts = start_time.tv_sec * 1000 + (double)start_time.tv_nsec / 1000000.0;
   double end_time_ts = end_time.tv_sec * 1000 + (double)end_time.tv_nsec / 1000000.0;
-  if (end_time_ts - start_time_ts < trace_event_min_interval_ms) {
+  if (end_time_ts - start_time_ts < (double)trace_event_min_interval_us / 1000.0) {
     return;
   }
 
@@ -4374,7 +4374,7 @@ Lisp_Object backtrace_top_function (void)
 void
 syms_of_eval (void)
 {
-  DEFVAR_INT ("trace-event-min-interval-ms", trace_event_min_interval_ms,
+  DEFVAR_INT ("trace-event-min-interval-us", trace_event_min_interval_us,
               doc: /* DEBUG: trace event  */);
 
   DEFVAR_INT ("max-specpdl-size", max_specpdl_size,
