@@ -21,6 +21,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <config.h>
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include "lisp.h"
 #include "blockinput.h"
@@ -2391,6 +2392,38 @@ grow_specpdl (void)
     }
 }
 
+static FILE* trace_event_output = NULL;
+
+static void maybe_trace_function() {
+  if (trace_event_min_interval_ms == 0) {
+    return;
+  }
+  struct timespec end_time = current_timespec();
+  struct timespec start_time = specpdl_ptr->bt.start_time;
+  double start_time_ts = start_time.tv_sec * 1000 + (double)start_time.tv_nsec / 1000000.0;
+  double end_time_ts = end_time.tv_sec * 1000 + (double)end_time.tv_nsec / 1000000.0;
+  if (end_time_ts - start_time_ts < trace_event_min_interval_ms) {
+    return;
+  }
+
+  if (!trace_event_output) {
+    trace_event_output = fopen("/tmp/emacs.trace.json", "w");
+    fprintf(trace_event_output, "[\n");
+  }
+
+  Lisp_Object function = specpdl_ptr->bt.function;
+  char* name_str = "[UNKNOWN]";
+  if (XTYPE(function) == Lisp_Symbol) {
+    Lisp_Object name = SYMBOL_NAME(function);
+    if (name && SBYTES(name)) {
+      name_str = SDATA(name);
+    }
+  }
+
+  fprintf(trace_event_output, "{\"name\":\"%s\",\"ph\":\"X\",\"ts\":%f,\"dur\":%f,\"pid\":0,\"tid\":0},\n",
+	  name_str, start_time_ts, end_time_ts - start_time_ts);
+}
+
 ptrdiff_t
 record_in_backtrace (Lisp_Object function, Lisp_Object *args, ptrdiff_t nargs)
 {
@@ -2402,9 +2435,18 @@ record_in_backtrace (Lisp_Object function, Lisp_Object *args, ptrdiff_t nargs)
   specpdl_ptr->bt.function = function;
   current_thread->stack_top = specpdl_ptr->bt.args = args;
   specpdl_ptr->bt.nargs = nargs;
+  specpdl_ptr->bt.start_time = current_timespec();
   grow_specpdl ();
 
   return count;
+}
+
+static void pop_in_backtrace () {
+  specpdl_ptr--;
+
+  if (specpdl_ptr->bt.kind == SPECPDL_BACKTRACE) {
+    maybe_trace_function();
+  }
 }
 
 /* Eval a sub-expression of the current expression (i.e. in the same
@@ -2502,7 +2544,7 @@ eval_sub (Lisp_Object form)
 	  if (backtrace_debug_on_exit (specpdl + count))
 	    val = call_debugger (list2 (Qexit, val));
 	  SAFE_FREE ();
-	  specpdl_ptr--;
+	  pop_in_backtrace();
 	  return val;
 	}
       else
@@ -2608,7 +2650,7 @@ eval_sub (Lisp_Object form)
   lisp_eval_depth--;
   if (backtrace_debug_on_exit (specpdl + count))
     val = call_debugger (list2 (Qexit, val));
-  specpdl_ptr--;
+  pop_in_backtrace();
 
   return val;
 }
@@ -3076,7 +3118,7 @@ usage: (funcall FUNCTION &rest ARGUMENTS)  */)
   lisp_eval_depth--;
   if (backtrace_debug_on_exit (specpdl + count))
     val = call_debugger (list2 (Qexit, val));
-  specpdl_ptr--;
+  pop_in_backtrace();
   return val;
 }
 
@@ -3204,7 +3246,7 @@ apply_lambda (Lisp_Object fun, Lisp_Object args, ptrdiff_t count)
   if (backtrace_debug_on_exit (specpdl + count))
     tem = call_debugger (list2 (Qexit, tem));
   SAFE_FREE ();
-  specpdl_ptr--;
+  pop_in_backtrace();
   return tem;
 }
 
@@ -3859,7 +3901,8 @@ unbind_to (ptrdiff_t count, Lisp_Object value)
 	 in case more bindings are made during some of the code we run.  */
 
       union specbinding this_binding;
-      this_binding = *--specpdl_ptr;
+      pop_in_backtrace();
+      this_binding = *specpdl_ptr;
 
       do_one_unbind (&this_binding, true, SET_INTERNAL_UNBIND);
     }
@@ -4331,6 +4374,9 @@ Lisp_Object backtrace_top_function (void)
 void
 syms_of_eval (void)
 {
+  DEFVAR_INT ("trace-event-min-interval-ms", trace_event_min_interval_ms,
+              doc: /* DEBUG: trace event  */);
+
   DEFVAR_INT ("max-specpdl-size", max_specpdl_size,
 	      doc: /* Limit on number of Lisp variable bindings and `unwind-protect's.
 If Lisp code tries to increase the total number past this amount,

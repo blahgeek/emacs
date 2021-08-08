@@ -3209,6 +3209,7 @@ union specbinding
       Lisp_Object function;
       Lisp_Object *args;
       ptrdiff_t nargs;
+      struct timespec start_time;
     } bt;
   };
 
