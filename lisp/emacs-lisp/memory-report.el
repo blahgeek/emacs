@@ -230,7 +230,7 @@ by counted more than once."
   (let ((total (+ (memory-report--size 'vector)
                   (* (memory-report--size 'object) (length value)))))
     (cl-loop for elem across value
-             do (setf (gethash elem counted) t)
+             do
              (cl-incf total (memory-report--object-size counted elem)))
     total))
 
@@ -239,8 +239,6 @@ by counted more than once."
                   (* (memory-report--size 'object) (hash-table-size value)))))
     (maphash
      (lambda (key elem)
-       (setf (gethash key counted) t)
-       (setf (gethash elem counted) t)
        (cl-incf total (memory-report--object-size counted key))
        (cl-incf total (memory-report--object-size counted elem)))
      value)
