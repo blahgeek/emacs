@@ -322,6 +322,126 @@ static struct gcstat
   object_ct total_buffers;
 } gcstat;
 
+
+#define SYMBOL_STAT_LEN (1024 * 1024 + 1)
+#define SYMBOL_STAT_NAME_STACK_CAPACITY (1024 * 16)
+
+/// blahgeek
+struct SymbolStat {
+  const char* name;
+  byte_ct bytes;
+};
+
+/* static const char* g_symbol_stat_current_name; */
+static struct SymbolStat* g_symbol_stat_p;
+static struct SymbolStat* g_symbol_stat_current;
+static int g_symbol_stat_count;
+
+static const char* g_symbol_stat_name_stack[SYMBOL_STAT_NAME_STACK_CAPACITY];
+static int g_symbol_stat_name_stack_len;
+
+static struct SymbolStat* symbol_stat_find_or_create(const char* name) {
+  eassert(g_symbol_stat_count < SYMBOL_STAT_LEN / 2);
+
+  int hash_val = 5381;
+  for (int i = 0 ; name[i] != '\0' ; i++) {
+    hash_val = hash_val * 33 + name[i];
+  }
+  int index = hash_val % SYMBOL_STAT_LEN;
+  while (g_symbol_stat_p[index].name &&
+	 strcmp(g_symbol_stat_p[index].name, name) != 0) {
+    index = (index + 1) % SYMBOL_STAT_LEN;
+  }
+  if (!g_symbol_stat_p[index].name) {
+    g_symbol_stat_p[index].name = name;
+    g_symbol_stat_count += 1;
+  }
+  return g_symbol_stat_p + index;
+}
+
+static void symbol_stat_reset() {
+  if (!garbage_collection_messages) {
+    return;
+  }
+
+  if (!g_symbol_stat_p) {
+    g_symbol_stat_p = malloc(sizeof(struct SymbolStat) * SYMBOL_STAT_LEN);
+  }
+  memset(g_symbol_stat_p, 0, sizeof(struct SymbolStat) * SYMBOL_STAT_LEN);
+  g_symbol_stat_count = 0;
+
+  g_symbol_stat_name_stack[0] = "UNKNOWN";
+  g_symbol_stat_name_stack_len = 1;
+
+  g_symbol_stat_current = symbol_stat_find_or_create(g_symbol_stat_name_stack[0]);
+}
+
+static bool symbol_stat_maybe_push(struct Lisp_Symbol* symbol) {
+  if (!garbage_collection_messages) {
+    return false;
+  }
+
+  if (!symbol || !symbol->u.s.name) {
+    return false;
+  }
+  const char* name = SDATA(symbol->u.s.name);
+  if (!name) {
+    return false;
+  }
+  g_symbol_stat_current = symbol_stat_find_or_create(name);
+  g_symbol_stat_name_stack[g_symbol_stat_name_stack_len++] = name;
+  return true;
+}
+
+static void symbol_stat_pop() {
+  if (!garbage_collection_messages) {
+    return;
+  }
+
+  g_symbol_stat_name_stack_len--;
+  eassert(g_symbol_stat_name_stack_len > 0);  // always one "UNKNOWN"
+  g_symbol_stat_current =
+    symbol_stat_find_or_create(g_symbol_stat_name_stack[g_symbol_stat_name_stack_len-1]);
+}
+
+static void symbol_stat_add_current_bytes(byte_ct bytes) {
+  if (g_symbol_stat_current) {
+    g_symbol_stat_current->bytes += bytes;
+  }
+}
+
+static int symbol_stat_compare(const struct SymbolStat* a, const struct SymbolStat* b) {
+  return b->bytes - a->bytes;
+}
+
+static void symbol_stat_report() {
+  if (!garbage_collection_messages) {
+    return;
+  }
+
+  fprintf(stderr, "\n\nSymbol stat count: %d\n", g_symbol_stat_count);
+  if (g_symbol_stat_count == 0) {
+    return;
+  }
+  struct SymbolStat* stats = malloc(sizeof(struct SymbolStat) * g_symbol_stat_count);
+  int i = 0;
+  for (struct SymbolStat* p = g_symbol_stat_p ; p < g_symbol_stat_p + SYMBOL_STAT_LEN ; p++) {
+    if (p->name) {
+      stats[i++] = *p;
+    }
+  }
+
+  qsort(stats, g_symbol_stat_count, sizeof(struct SymbolStat), symbol_stat_compare);
+  for (i = 0 ; i < (g_symbol_stat_count > 50 ? 50 : g_symbol_stat_count) ; i++) {
+    if (stats[i].bytes == 0) {
+      break;
+    }
+    fprintf(stderr, "%d\t %s\n", (int)stats[i].bytes, stats[i].name);
+  }
+
+  free(stats);
+}
+
 /* Points to memory space allocated as "spare", to be freed if we run
    out of memory.  We keep one large block, four cons-blocks, and
    two string blocks.  */
@@ -6122,6 +6242,8 @@ garbage_collect (void)
 
   block_input ();
 
+  symbol_stat_reset();
+
   shrink_regexp_cache ();
 
   gc_in_progress = 1;
@@ -6174,6 +6296,8 @@ garbage_collect (void)
   /* Must happen after all other marking and before gc_sweep.  */
   mark_and_sweep_weak_table_contents ();
   eassert (weak_hash_tables == NULL);
+
+  symbol_stat_report();
 
   gc_sweep ();
 
@@ -6602,6 +6726,7 @@ mark_objects (Lisp_Object *obj, ptrdiff_t n)
     mark_object (obj[i]);
 }
 
+
 /* Determine type of generic Lisp_Object and mark it accordingly.
 
    This function implements a straightforward depth-first marking
@@ -6691,6 +6816,9 @@ mark_object (Lisp_Object arg)
 	register struct Lisp_String *ptr = XSTRING (obj);
         if (string_marked_p (ptr))
           break;
+
+	symbol_stat_add_current_bytes(STRING_BYTES(ptr));
+
 	CHECK_ALLOCATED_AND_LIVE (live_string_p, MEM_TYPE_STRING);
         set_string_marked (ptr);
         mark_interval_tree (ptr->u.s.intervals);
@@ -6709,7 +6837,9 @@ mark_object (Lisp_Object arg)
 	if (vector_marked_p (ptr))
 	  break;
 
-        enum pvec_type pvectype
+	symbol_stat_add_current_bytes(vector_nbytes(ptr));
+
+	enum pvec_type pvectype
           = PSEUDOVECTOR_TYPE (ptr);
 
 #ifdef GC_CHECK_MARKED_OBJECTS
@@ -6801,6 +6931,9 @@ mark_object (Lisp_Object arg)
       nextsym:
         if (symbol_marked_p (ptr))
           break;
+
+	bool symbol_stat_pushed = symbol_stat_maybe_push(ptr);
+
         CHECK_ALLOCATED_AND_LIVE_SYMBOL ();
         set_symbol_marked (ptr);
 	/* Attempt to catch bogus objects.  */
@@ -6831,6 +6964,11 @@ mark_object (Lisp_Object arg)
 	if (!PURE_P (XSTRING (ptr->u.s.name)))
           set_string_marked (XSTRING (ptr->u.s.name));
         mark_interval_tree (string_intervals (ptr->u.s.name));
+
+	if (symbol_stat_pushed) {
+	  symbol_stat_pop();
+	}
+
 	/* Inner loop to mark next symbol in this bucket, if any.  */
 	po = ptr = ptr->u.s.next;
 	if (ptr)
