@@ -2111,7 +2111,7 @@ fix_frame (mps_ss_t ss, struct frame *f)
 	  IGC_FIX_CALL_FN(ss, struct frame, (FRAME_DISPLAY_INFO(f)->last_mouse_glyph_frame), fix_frame);
 	if (FRAME_DISPLAY_INFO(f)->last_mouse_motion_frame)
 	  IGC_FIX_CALL_FN(ss, struct frame, (FRAME_DISPLAY_INFO(f)->last_mouse_motion_frame), fix_frame);
-	IGC_FIX12_OBJ(ss, (FRAME_DISPLAY_INFO(f)->xim_coding));
+	IGC_FIX12_OBJ(ss, &(FRAME_DISPLAY_INFO(f)->xim_coding));
       }
 #endif /* HAVE_WINDOW_SYSTEM */
 
