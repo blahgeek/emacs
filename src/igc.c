@@ -2098,6 +2098,20 @@ fix_frame (mps_ss_t ss, struct frame *f)
 	  IGC_FIX12_PVEC (ss, font_ptr);
 	Lisp_Object *nle = &FRAME_DISPLAY_INFO (f)->name_list_element;
 	IGC_FIX12_OBJ (ss, nle);
+
+	if (FRAME_DISPLAY_INFO(f)->x_focus_event_frame)
+	  IGC_FIX_CALL_FN(ss, struct frame, (FRAME_DISPLAY_INFO(f)->x_focus_event_frame), fix_frame);
+	if (FRAME_DISPLAY_INFO(f)->highlight_frame)
+	  IGC_FIX_CALL_FN(ss, struct frame, (FRAME_DISPLAY_INFO(f)->highlight_frame), fix_frame);
+	if (FRAME_DISPLAY_INFO(f)->x_pending_autoraise_frame)
+	  IGC_FIX_CALL_FN(ss, struct frame, (FRAME_DISPLAY_INFO(f)->x_pending_autoraise_frame), fix_frame);
+	if (FRAME_DISPLAY_INFO(f)->last_mouse_frame)
+	  IGC_FIX_CALL_FN(ss, struct frame, (FRAME_DISPLAY_INFO(f)->last_mouse_frame), fix_frame);
+	if (FRAME_DISPLAY_INFO(f)->last_mouse_glyph_frame)
+	  IGC_FIX_CALL_FN(ss, struct frame, (FRAME_DISPLAY_INFO(f)->last_mouse_glyph_frame), fix_frame);
+	if (FRAME_DISPLAY_INFO(f)->last_mouse_motion_frame)
+	  IGC_FIX_CALL_FN(ss, struct frame, (FRAME_DISPLAY_INFO(f)->last_mouse_motion_frame), fix_frame);
+	IGC_FIX12_OBJ(ss, (FRAME_DISPLAY_INFO(f)->xim_coding));
       }
 #endif /* HAVE_WINDOW_SYSTEM */
 
