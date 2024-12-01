@@ -6914,6 +6914,7 @@ x_display_info_for_display (Display *dpy)
     if (dpyinfo->display == dpy)
       return dpyinfo;
 
+  fprintf(stderr, "couldn't find display info for %p\n", dpy);
   return 0;
 }
 
@@ -13027,6 +13028,7 @@ x_dnd_begin_drag_and_drop (struct frame *f, Time time, Atom xaction,
       event_display
 	= x_display_info_for_display (next_event.xany.display);
 
+      fprintf(stderr, "event_display %p\n", event_display);
       if (event_display)
 	{
 #ifdef HAVE_X_I18N
@@ -17913,7 +17915,11 @@ x_filter_event (struct x_display_info *dpyinfo, XEvent *event)
       && !dpyinfo->prefer_native_input)
     {
 #endif
-      return XFilterEvent (event, f1 ? FRAME_X_WINDOW (f1) : None);
+      bool result;
+      result = XFilterEvent (event, f1 ? FRAME_X_WINDOW (f1) : None);
+      fprintf(stderr, "result %d (not GTK) for event %d, frame %p dpyinfo %p\n", result, event->type,
+	      f1, dpyinfo);
+      return result;
 #ifdef USE_GTK
     }
   else if (f1 && (event->type == KeyPress
@@ -17941,9 +17947,13 @@ x_filter_event (struct x_display_info *dpyinfo, XEvent *event)
 	   exercise the wire to make pselect return.  */
 	XNoOp (FRAME_X_DISPLAY (f1));
 
+      fprintf(stderr, "result %d for event %d, frame %p dpyinfo %p\n", result, event->type,
+	      f1, dpyinfo);
       return result;
     }
 
+  fprintf(stderr, "result 0 (no frame) for event %d, frame %p dpyinfo %p\n", event->type,
+	  f1, dpyinfo);
   return 0;
 #endif
 }
@@ -17965,6 +17975,7 @@ event_handler_gdk (GdkXEvent *gxev, GdkEvent *ev, gpointer data)
 
       dpyinfo = x_display_info_for_display (xev->xany.display);
 
+      fprintf(stderr, "dpyinfo %p\n", dpyinfo);
 #ifdef HAVE_X_I18N
       /* Filter events for the current X input method.
          GTK calls XFilterEvent but not for key press and release,
