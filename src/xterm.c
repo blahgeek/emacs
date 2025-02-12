@@ -24131,7 +24131,8 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 		  copy.xkey.window = xev->event;
 		  copy.xkey.root = xev->root;
 		  copy.xkey.subwindow = xev->child;
-		  copy.xkey.time = xev->time;
+                 fprintf (stderr, "ignoring time %ld\n", (long) xev->time);
+                 copy.xkey.time = CurrentTime;
 		  copy.xkey.state = state;
 		  xi_convert_button_state (&xev->buttons, &copy.xkey.state);
 
@@ -24189,7 +24190,8 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 	      xkey.window = xev->event;
 	      xkey.root = xev->root;
 	      xkey.subwindow = xev->child;
-	      xkey.time = xev->time;
+             fprintf (stderr, "ignoring time %ld\n", (long) xev->time);
+             xkey.time = CurrentTime;
 	      xkey.state = state;
 	      xkey.x = lrint (xev->event_x);
 	      xkey.y = lrint (xev->event_y);
@@ -24631,7 +24633,8 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 	      xkey.window = xev->event;
 	      xkey.root = xev->root;
 	      xkey.subwindow = xev->child;
-	      xkey.time = xev->time;
+             fprintf (stderr, "ignoring time %ld\n", (long) xev->time);
+             xkey.time = CurrentTime;
 	      xkey.state = xi_convert_event_keyboard_state (xev);
 	      xkey.x = lrint (xev->event_x);
 	      xkey.y = lrint (xev->event_y);
