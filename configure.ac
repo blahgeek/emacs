@@ -21,7 +21,7 @@ dnl
 dnl  You should have received a copy of the GNU General Public License
 dnl  along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
-# Hello world
+# Hello world new
 # Line 111
 # Line 222
 # Line 333
